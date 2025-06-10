@@ -68,6 +68,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 public class TransportCorrelateFindingAction extends HandledTransportAction<ActionRequest, SubscribeFindingsResponse> implements SecureTransportAction {
 
@@ -221,7 +222,7 @@ public class TransportCorrelateFindingAction extends HandledTransportAction<Acti
         void start() {
             TransportCorrelateFindingAction.this.threadPool.getThreadContext().stashContext();
             String monitorId = request.getMonitorId();
-            Finding finding = request.getFinding();
+            List<Finding> findings = request.getFindings();
 
             if (detectorIndices.detectorIndexExists()) {
                 NestedQueryBuilder queryBuilder =
@@ -259,7 +260,9 @@ public class TransportCorrelateFindingAction extends HandledTransportAction<Acti
                                     LoggingDeprecationHandler.INSTANCE, hit.getSourceAsString()
                             );
                             Detector detector = Detector.docParse(xcp, hit.getId(), hit.getVersion());
-                            joinEngine.onSearchDetectorResponse(detector, finding);
+                            for (Finding finding : findings) {
+                                joinEngine.onSearchDetectorResponse(detector, finding);
+                            }
                         } catch (Exception e) {
                             log.error("Exception for request {}", searchRequest.toString(), e);
                             onFailures(e);
@@ -510,8 +513,9 @@ public class TransportCorrelateFindingAction extends HandledTransportAction<Acti
         }
 
         public void onFailures(Exception t) {
+            String findingIds = request.getFindings().stream().map(Finding::getId).collect(Collectors.joining(", "));
             log.error("Exception occurred while processing correlations for monitor id "
-                    + request.getMonitorId() + " and finding id " + request.getFinding().getId(), t);
+                    + request.getMonitorId() + " and finding ids: " + findingIds, t);
             if (counter.compareAndSet(false, true)) {
                 finishHim(t);
             }
