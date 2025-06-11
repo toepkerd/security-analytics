@@ -11,6 +11,7 @@ import org.apache.lucene.search.join.ScoreMode;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.cluster.routing.Preference;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.commons.alerting.action.PublishBatchFindingsRequest;
 import org.opensearch.commons.alerting.model.DocLevelQuery;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.search.MultiSearchRequest;
@@ -61,7 +62,7 @@ public class JoinEngine {
 
     private final Client client;
 
-    private final PublishFindingsRequest request;
+    private final PublishBatchFindingsRequest request;
 
     private final NamedXContentRegistry xContentRegistry;
 
@@ -83,7 +84,7 @@ public class JoinEngine {
 
     private final User user;
 
-    public JoinEngine(Client client, PublishFindingsRequest request, NamedXContentRegistry xContentRegistry,
+    public JoinEngine(Client client, PublishBatchFindingsRequest request, NamedXContentRegistry xContentRegistry,
                       long corrTimeWindow, TimeValue indexTimeout, TransportCorrelateFindingAction.AsyncCorrelateFindingAction correlateFindingAction,
                       LogTypeService logTypeService, boolean enableAutoCorrelations, CorrelationAlertService correlationAlertService, NotificationService notificationService, User user) {
         this.client = client;
@@ -571,7 +572,7 @@ public class JoinEngine {
                         correlatedFindings.put(autoCorrelation.getKey(), autoCorrelation.getValue());
                     }
                 }
-                correlateFindingAction.initCorrelationIndex(detectorType, correlatedFindings, correlationRules.stream().map(CorrelationRule::getId).collect(Collectors.toList()));
+                correlateFindingAction.initCorrelationIndex(detectorType, finding, correlatedFindings, correlationRules.stream().map(CorrelationRule::getId).collect(Collectors.toList()));
             }, this::onFailure));
         } else {
             getTimestampFeature(detectorType, finding, correlationRules.stream().map(CorrelationRule::getId).collect(Collectors.toList()), autoCorrelations);
@@ -580,9 +581,9 @@ public class JoinEngine {
 
     private void getTimestampFeature(String detectorType, Finding finding, List<String> correlationRules, Map<String, List<String>> autoCorrelations) {
         if (!autoCorrelations.isEmpty()) {
-            correlateFindingAction.getTimestampFeature(detectorType, autoCorrelations, null, List.of());
+            correlateFindingAction.getTimestampFeature(detectorType, finding, autoCorrelations, null, List.of());
         } else {
-            correlateFindingAction.getTimestampFeature(detectorType, null, finding, correlationRules);
+            correlateFindingAction.getTimestampFeature(detectorType, finding, null, finding, correlationRules);
         }
     }
 

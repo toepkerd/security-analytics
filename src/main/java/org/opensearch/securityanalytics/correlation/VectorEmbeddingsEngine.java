@@ -187,7 +187,7 @@ public class VectorEmbeddingsEngine {
                         if (bulkResponse.hasFailures()) {
                             onFailure(new OpenSearchStatusException("Correlation of finding failed", RestStatus.INTERNAL_SERVER_ERROR));
                         }
-                        correlateFindingAction.onOperation();
+                        // correlateFindingAction.onOperation();
                     }, this::onFailure));
                 } else {
                     insertOrphanFindings(detectorType, finding, timestampFeature, logTypes);
@@ -283,7 +283,7 @@ public class VectorEmbeddingsEngine {
 
                         client.index(indexRequest, ActionListener.wrap(indexResponse -> {
                             if (indexResponse.status().equals(RestStatus.OK)) {
-                                correlateFindingAction.onOperation();
+//                                correlateFindingAction.onOperation();
                                 try {
                                     float[] corrVector = new float[3];
                                     corrVector[0] = 50.0f;
@@ -444,7 +444,7 @@ public class VectorEmbeddingsEngine {
 
         client.index(indexRequest, ActionListener.wrap(response -> {
             if (response.status().equals(RestStatus.CREATED)) {
-                correlateFindingAction.onOperation();
+                // correlateFindingAction.onOperation();
             } else {
                 onFailure(new OpenSearchStatusException("Indexing failed with response {} ", response.status(), response.toString()));
             }
