@@ -290,7 +290,6 @@ public class TransportCorrelateFindingAction extends HandledTransportAction<Acti
                                 }
                                 joinEngine.onSearchDetectorResponse(detector, finding);
                             }
-                            onCompletion(); // this is great, but does that mean changing onFailures() too?
                         } catch (Exception e) {
                             log.error("Exception for request {}", searchRequest.toString(), e);
                             onFailures(e);
