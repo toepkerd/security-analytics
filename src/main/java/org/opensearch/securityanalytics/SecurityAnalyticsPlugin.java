@@ -20,6 +20,8 @@ import org.opensearch.common.settings.IndexScopedSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.settings.SettingsFilter;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.util.concurrent.OpenSearchExecutors;
 import org.opensearch.commons.alerting.action.AlertingActions;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.action.ActionResponse;
@@ -210,12 +212,15 @@ import org.opensearch.securityanalytics.util.CustomLogTypeIndices;
 import org.opensearch.securityanalytics.util.DetectorIndices;
 import org.opensearch.securityanalytics.util.RuleIndices;
 import org.opensearch.securityanalytics.util.RuleTopicIndices;
+import org.opensearch.threadpool.ExecutorBuilder;
+import org.opensearch.threadpool.ScalingExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.client.Client;
 import org.opensearch.transport.client.node.NodeClient;
 import org.opensearch.watcher.ResourceWatcherService;
 import reactor.util.annotation.NonNull;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -232,6 +237,7 @@ public class SecurityAnalyticsPlugin extends Plugin implements ActionPlugin, Map
 
     private static final Logger log = LogManager.getLogger(SecurityAnalyticsPlugin.class);
 
+    public static final String SECURITY_ANALYTICS_CORRELATIONS_THREADPOOL_NAME = "security_analytics_correlation";
     public static final String PLUGINS_BASE_URI = "/_plugins/_security_analytics";
     public static final String MAPPER_BASE_URI = PLUGINS_BASE_URI + "/mappings";
     public static final String MAPPINGS_VIEW_BASE_URI = MAPPER_BASE_URI + "/view";
@@ -406,6 +412,21 @@ public class SecurityAnalyticsPlugin extends Plugin implements ActionPlugin, Map
     @Override
     public String getJobIndex() {
         return JOB_INDEX_NAME;
+    }
+
+    @Override
+    public List<ExecutorBuilder<?>> getExecutorBuilders(Settings settings) {
+        final int availableProcessors = OpenSearchExecutors.allocatedProcessors(settings);
+        List<ExecutorBuilder<?>> executorBuilders = new ArrayList<>();
+        executorBuilders.add(
+                new ScalingExecutorBuilder(
+                        SECURITY_ANALYTICS_CORRELATIONS_THREADPOOL_NAME,
+                        1,
+                        Math.min(2 * availableProcessors, 128),
+                        TimeValue.timeValueMinutes(30)
+                )
+        );
+        return executorBuilders;
     }
 
     @Override
