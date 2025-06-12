@@ -542,7 +542,7 @@ public class TransportCorrelateFindingAction extends HandledTransportAction<Acti
         }
 
         public void onOperation() {
-            log.info("correlation successful")
+            log.info("correlation successful");
         }
 
         public void onFailures(Exception t) {
