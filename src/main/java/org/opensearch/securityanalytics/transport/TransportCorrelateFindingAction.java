@@ -49,6 +49,7 @@ import org.opensearch.securityanalytics.correlation.VectorEmbeddingsEngine;
 import org.opensearch.securityanalytics.correlation.alert.CorrelationAlertService;
 import org.opensearch.securityanalytics.correlation.alert.notifications.NotificationService;
 import org.opensearch.securityanalytics.logtype.LogTypeService;
+// import org.opensearch.securityanalytics.model.CorrelationRule;
 import org.opensearch.securityanalytics.model.CustomLogType;
 import org.opensearch.securityanalytics.model.Detector;
 import org.opensearch.securityanalytics.settings.SecurityAnalyticsSettings;
@@ -219,6 +220,8 @@ public class TransportCorrelateFindingAction extends HandledTransportAction<Acti
                 }
             }
         });
+
+        log.info("forked correlations onto security analytics correlations thread");
     }
 
     public class AsyncCorrelateFindingAction {
@@ -290,6 +293,8 @@ public class TransportCorrelateFindingAction extends HandledTransportAction<Acti
                                 }
                                 joinEngine.onSearchDetectorResponse(detector, finding);
                             }
+                            long endTime = System.currentTimeMillis();
+                            log.info("Correlating batch of {} findings took {} seconds to complete", findings.size(), (endTime - startTime) / 1000);
                         } catch (Exception e) {
                             log.error("Exception for request {}", searchRequest.toString(), e);
                             onFailures(e);
@@ -575,7 +580,23 @@ public class TransportCorrelateFindingAction extends HandledTransportAction<Acti
         return new PublishBatchFindingsRequest(issi);
     }
 
-//    private boolean isCorrelationRuleIndexEmpty() {
+//    private boolean correlationRuleIndexIsEmpty() {
+//        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+//        searchSourceBuilder.query(QueryBuilders.matchAllQuery());
+//        searchSourceBuilder.size(0);
+//        SearchRequest searchRequest = new SearchRequest();
+//        searchRequest.indices(CorrelationRule.CORRELATION_RULE_INDEX);
+//        searchRequest.source(searchSourceBuilder);
+//        searchRequest.setCancelAfterTimeInterval(TimeValue.timeValueSeconds(30L));
 //
+//        client.search(searchRequest, ActionListener.wrap(response -> {
+//            if (response.isTimedOut()) {
+//                onFailures(new OpenSearchStatusException("Search request timed out", RestStatus.REQUEST_TIMEOUT));
+//            }
+//
+//            SearchHits hits = response.getHits();
+//        }
+//
+//        return searchRequest;
 //    }
 }
