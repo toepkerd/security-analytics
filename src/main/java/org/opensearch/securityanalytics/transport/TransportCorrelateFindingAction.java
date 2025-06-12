@@ -308,11 +308,6 @@ public class TransportCorrelateFindingAction extends HandledTransportAction<Acti
                                     break;
                                 }
                                 joinEngine.onSearchDetectorResponse(detector, finding);
-                                try {
-                                    Thread.sleep(60000);
-                                } catch (InterruptedException ex) {
-                                    throw new RuntimeException(ex);
-                                }
                             }
                             long endTime = System.currentTimeMillis();
                             log.info("Correlating batch of {} findings took {} seconds to complete", findings.size(), (endTime - startTime) / 1000);
