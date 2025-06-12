@@ -543,19 +543,13 @@ public class TransportCorrelateFindingAction extends HandledTransportAction<Acti
         }
 
         public void onOperation() {
-//            this.response.set(RestStatus.OK);
-//            if (counter.compareAndSet(false, true)) {
-//                finishHim(null);
-//            }
+            log.info("correlation successful")
         }
 
         public void onFailures(Exception t) {
-//            String findingIds = request.getFindings().stream().map(Finding::getId).collect(Collectors.joining(", "));
-//            log.error("Exception occurred while processing correlations for monitor id "
-//                    + request.getMonitorId() + " and finding ids: " + findingIds, t);
-//            if (counter.compareAndSet(false, true)) {
-//                finishHim(t);
-//            }
+            String findingIds = request.getFindings().stream().map(Finding::getId).collect(Collectors.joining(", "));
+            log.error("Exception occurred while processing correlations for monitor id "
+                    + request.getMonitorId() + " and finding ids: " + findingIds, t);
         }
 
         private void finishHim(Exception t) {

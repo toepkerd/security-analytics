@@ -237,7 +237,6 @@ public class VectorEmbeddingsEngine {
 
                     client.index(indexRequest, ActionListener.wrap(indexResponse -> {
                         if (indexResponse.status().equals(RestStatus.OK)) {
-                            correlateFindingAction.onOperation();
                             try {
                                 float[] corrVector = new float[3];
                                 corrVector[0] = 50.0f;
@@ -284,6 +283,7 @@ public class VectorEmbeddingsEngine {
 
                         client.index(indexRequest, ActionListener.wrap(indexResponse -> {
                             if (indexResponse.status().equals(RestStatus.OK)) {
+                                correlateFindingAction.onOperation();
                                 try {
                                     float[] corrVector = new float[3];
                                     corrVector[0] = 50.0f;
