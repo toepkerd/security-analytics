@@ -48,7 +48,7 @@ import org.opensearch.securityanalytics.correlation.VectorEmbeddingsEngine;
 import org.opensearch.securityanalytics.correlation.alert.CorrelationAlertService;
 import org.opensearch.securityanalytics.correlation.alert.notifications.NotificationService;
 import org.opensearch.securityanalytics.logtype.LogTypeService;
-// import org.opensearch.securityanalytics.model.CorrelationRule;
+import org.opensearch.securityanalytics.model.CorrelationRule;
 import org.opensearch.securityanalytics.model.CustomLogType;
 import org.opensearch.securityanalytics.model.Detector;
 import org.opensearch.securityanalytics.settings.SecurityAnalyticsSettings;
@@ -150,10 +150,35 @@ public class TransportCorrelateFindingAction extends HandledTransportAction<Acti
             PublishBatchFindingsRequest transformedRequest = transformRequest(request);
             AsyncCorrelateFindingAction correlateFindingAction = new AsyncCorrelateFindingAction(task, transformedRequest, readUserFromThreadContext(this.threadPool), actionListener);
 
-            if (!enableAutoCorrelation && !correlationRuleIndices.correlationRuleIndexExists()) { //TODO: is index empty
-                correlateFindingAction.onOperation(); // terminate early
+            if (!enableAutoCorrelation && !correlationRuleIndices.correlationRuleIndexExists()) {
+                log.debug("auto correlations is disabled and correlation rules index does not exist, skipping correlations");
+                correlateFindingAction.onOperation();
             }
 
+            // check if there are any correlation rules
+            SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+            searchSourceBuilder.query(QueryBuilders.matchAllQuery());
+            searchSourceBuilder.size(1);
+            SearchRequest searchRequest = new SearchRequest();
+            searchRequest.indices(CorrelationRule.CORRELATION_RULE_INDEX);
+            searchRequest.source(searchSourceBuilder);
+            searchRequest.setCancelAfterTimeInterval(TimeValue.timeValueSeconds(30L));
+
+            client.search(searchRequest,
+                    ActionListener.wrap(response -> {
+                        if (response.isTimedOut()) {
+                            correlateFindingAction.onFailures(new OpenSearchStatusException("Correlation rules search request timed out", RestStatus.REQUEST_TIMEOUT));
+                        }
+
+                        SearchHits hits = response.getHits();
+                        if (hits.getHits().length == 0) {
+                            log.debug("correlations rules index exists but is empty, skipping correlations");
+                            correlateFindingAction.onCompletion();
+                        }
+                    }, correlateFindingAction::onFailures)
+            );
+
+            // proceed with correlating findings
             if (!this.correlationIndices.correlationIndexExists()) {
                 try {
                     this.correlationIndices.initCorrelationIndex(ActionListener.wrap(response -> {
@@ -283,6 +308,11 @@ public class TransportCorrelateFindingAction extends HandledTransportAction<Acti
                                     break;
                                 }
                                 joinEngine.onSearchDetectorResponse(detector, finding);
+                                try {
+                                    Thread.sleep(60000);
+                                } catch (InterruptedException ex) {
+                                    throw new RuntimeException(ex);
+                                }
                             }
                             long endTime = System.currentTimeMillis();
                             log.info("Correlating batch of {} findings took {} seconds to complete", findings.size(), (endTime - startTime) / 1000);
@@ -538,13 +568,15 @@ public class TransportCorrelateFindingAction extends HandledTransportAction<Acti
         }
 
         public void onOperation() {
-            log.info("correlation successful");
+            String findingIds = request.getFindings().stream().map(Finding::getId).collect(Collectors.joining(", "));
+            log.debug("Successfully correlated finding ids {} for monitor id {}",
+                    findingIds, request.getMonitorId());
         }
 
         public void onFailures(Exception t) {
             String findingIds = request.getFindings().stream().map(Finding::getId).collect(Collectors.joining(", "));
-            log.error("Exception occurred while processing correlations for monitor id "
-                    + request.getMonitorId() + " and finding ids: " + findingIds, t);
+            log.error("Exception occurred while processing correlations for finding ids {} and monitor id {}",
+                    findingIds, request.getMonitorId(), t);
         }
 
         private void finishHim(Exception t) {
@@ -570,24 +602,4 @@ public class TransportCorrelateFindingAction extends HandledTransportAction<Acti
         InputStreamStreamInput issi = new InputStreamStreamInput(bais);
         return new PublishBatchFindingsRequest(issi);
     }
-
-//    private boolean correlationRuleIndexIsEmpty() {
-//        SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-//        searchSourceBuilder.query(QueryBuilders.matchAllQuery());
-//        searchSourceBuilder.size(0);
-//        SearchRequest searchRequest = new SearchRequest();
-//        searchRequest.indices(CorrelationRule.CORRELATION_RULE_INDEX);
-//        searchRequest.source(searchSourceBuilder);
-//        searchRequest.setCancelAfterTimeInterval(TimeValue.timeValueSeconds(30L));
-//
-//        client.search(searchRequest, ActionListener.wrap(response -> {
-//            if (response.isTimedOut()) {
-//                onFailures(new OpenSearchStatusException("Search request timed out", RestStatus.REQUEST_TIMEOUT));
-//            }
-//
-//            SearchHits hits = response.getHits();
-//        }
-//
-//        return searchRequest;
-//    }
 }
