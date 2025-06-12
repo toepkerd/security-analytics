@@ -283,16 +283,19 @@ public class TransportCorrelateFindingAction extends HandledTransportAction<Acti
                             Detector detector = Detector.docParse(xcp, hit.getId(), hit.getVersion());
                             long startTime = System.currentTimeMillis();
                             for (Finding finding : findings) {
+                                log.info("Processing a batch of {} findings", findings.size());
                                 if (System.currentTimeMillis() - startTime >= autoCorrelationTimebox) {
                                     log.error("Correlation timebox breached after {} millis, skipping rest of findings", autoCorrelationTimebox);
                                     break;
                                 }
                                 joinEngine.onSearchDetectorResponse(detector, finding);
                             }
-                            onOperation();
+                            onCompletion(); // this is great, but does that mean changing onFailures() too?
                         } catch (Exception e) {
                             log.error("Exception for request {}", searchRequest.toString(), e);
                             onFailures(e);
+                        } finally {
+                            onCompletion();
                         }
                     } else {
                         onFailures(new OpenSearchStatusException("detector not found given monitor id " + request.getMonitorId(), RestStatus.INTERNAL_SERVER_ERROR));
@@ -532,20 +535,27 @@ public class TransportCorrelateFindingAction extends HandledTransportAction<Acti
             return searchRequest;
         }
 
-        public void onOperation() {
+        public void onCompletion() {
             this.response.set(RestStatus.OK);
             if (counter.compareAndSet(false, true)) {
                 finishHim(null);
             }
         }
 
+        public void onOperation() {
+//            this.response.set(RestStatus.OK);
+//            if (counter.compareAndSet(false, true)) {
+//                finishHim(null);
+//            }
+        }
+
         public void onFailures(Exception t) {
-            String findingIds = request.getFindings().stream().map(Finding::getId).collect(Collectors.joining(", "));
-            log.error("Exception occurred while processing correlations for monitor id "
-                    + request.getMonitorId() + " and finding ids: " + findingIds, t);
-            if (counter.compareAndSet(false, true)) {
-                finishHim(t);
-            }
+//            String findingIds = request.getFindings().stream().map(Finding::getId).collect(Collectors.joining(", "));
+//            log.error("Exception occurred while processing correlations for monitor id "
+//                    + request.getMonitorId() + " and finding ids: " + findingIds, t);
+//            if (counter.compareAndSet(false, true)) {
+//                finishHim(t);
+//            }
         }
 
         private void finishHim(Exception t) {
